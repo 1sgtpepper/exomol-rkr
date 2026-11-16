@@ -95,11 +95,14 @@ def numerov_shoot(
     y_in = _sweep_numerov(a[n - 2 : m : -1])[::-1]
 
     y_full = np.empty(n, dtype=np.float64)
-    y_full[:m] = np.asarray(y_out[:m], dtype=np.float64) * (float(one_m_c[m]) / y_out[m])
-    y_full[m:] = np.asarray(y_in, dtype=np.float64) * (float(one_m_c[m]) / y_in[0])
+    y_out_m = y_out[m] if abs(y_out[m]) > 1e-30 else (1e-30 if y_out[m] >= 0.0 else -1e-30)
+    y_in_0 = y_in[0] if abs(y_in[0]) > 1e-30 else (1e-30 if y_in[0] >= 0.0 else -1e-30)
+    y_full[:m] = np.asarray(y_out[:m], dtype=np.float64) * (float(one_m_c[m]) / y_out_m)
+    y_full[m:] = np.asarray(y_in, dtype=np.float64) * (float(one_m_c[m]) / y_in_0)
     u = y_full / one_m_c
 
-    nodes = int(np.sum(u[1:m] * u[2 : m + 1] < 0.0))
+    u_nz = u[1 : m + 1][u[1 : m + 1] != 0.0]
+    nodes = int(np.sum(u_nz[:-1] * u_nz[1:] < 0.0))
     mismatch = -y_full[m + 1] + a[m] * y_full[m] - y_full[m - 1]
     return nodes, float((c_mu / (h**2)) * mismatch / np.sum(u**2)), u
 
@@ -117,10 +120,11 @@ def solve_radial_schrodinger(
     """Solve -c_mu u'' + V_eff(r) u = E u via safeguarded Sturm bisection and Cooley update."""
     h = float(r[1] - r[0])
     v_eff = v_pot + (c_mu * j_rot * (j_rot + 1)) / (r**2) if j_rot > 0 else v_pot
-    low, high = float(np.min(v_eff)), float(v_eff[-1]) * 0.9995
+    v_min, v_end = float(np.min(v_eff)), float(v_eff[-1])
+    low, high = v_min, v_end - 5e-4 * max(v_end - v_min, 1.0)
     energy = float(e_hint) if (e_hint is not None and low < e_hint < high) else 0.5 * (low + high)
 
-    for _ in range(48):
+    for _ in range(64):
         nd, de_corr, u = numerov_shoot(r, v_eff, energy, c_mu, c_coeff=c_coeff)
         if nd == v and (abs(de_corr) < tol or 0.5 * (high - low) < tol):
             return _package_eigenstate(r, h, v_eff, v, j_rot, energy, nd, u, c_mu)

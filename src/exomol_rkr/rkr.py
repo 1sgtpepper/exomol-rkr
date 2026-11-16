@@ -85,6 +85,8 @@ class RKRCurve:
 
 def _legendre_p_and_dp(n: int, x: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     """Evaluate Legendre polynomial P_n(x) and derivative P_n'(x) via 3-term recurrence."""
+    if n == 0:
+        return np.ones_like(x), np.zeros_like(x)
     p0, p1 = np.ones_like(x), x.copy()
     for k in range(2, n + 1):
         p0, p1 = p1, ((2 * k - 1) * x * p1 - (k - 1) * p0) / k
@@ -124,10 +126,11 @@ def fit_dunham(
     a_b = np.column_stack([x**k for k in range(0, deg_b_eff + 1)])
     y_k1, *_ = np.linalg.lstsq(a_b, b_v, rcond=None)
 
-    slope, intercept = np.polyfit(np.asarray(v_levels[:-1], dtype=np.float64) + 1.0, np.diff(e_v0), 1)
+    v_fl = np.asarray(v_levels, dtype=np.float64)
+    v_mid = 0.5 * (v_fl[:-1] + v_fl[1:] + 1.0)
+    slope, intercept = np.polyfit(v_mid, np.diff(e_v0) / np.diff(v_fl), 1)
     morse_wexe, morse_we = float(-0.5 * slope), float(intercept)
     morse_de = float((morse_we**2) / (4.0 * morse_wexe))
-    v_fl = np.asarray(v_levels, dtype=np.float64)
     morse_rms = float(np.sqrt(np.mean((e_v0 - (morse_we * v_fl - morse_wexe * (v_fl**2 + v_fl))) ** 2)))
 
     return DunhamExpansion(y_k0, y_k1, float(c_mu), zpe, fit_rms, morse_we, morse_wexe, morse_de, morse_rms)
