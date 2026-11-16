@@ -3,9 +3,9 @@ requires = ["hatchling>=1.25.0"]
 build-backend = "hatchling.build"
 
 [project]
-name = "exomol-comphys"
+name = "exomol-rkr"
 version = "0.1.0"
-description = "Inverse Sturm-Liouville potential reconstruction, RKR singular quadrature, and FTIR spectral synthesis on ExoMol diatomic molecules (PHYS 3178)."
+description = "RKR potential inversion and Numerov-Cooley solver for diatomic ExoMol spectra."
 requires-python = ">=3.11"
 dependencies = [
     "numpy>=2.0.0",
@@ -19,10 +19,10 @@ dev = [
 ]
 
 [project.scripts]
-exomol-comphys = "exomol_comphys.cli:main"
+exomol-rkr = "exomol_rkr.cli:main"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/exomol_comphys"]
+packages = ["src/exomol_rkr"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

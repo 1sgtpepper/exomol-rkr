@@ -67,7 +67,7 @@ def fit_emo_from_rkr(rkr: RKRCurve, de_cm: float, degree: int = 5) -> EMOPotenti
 def brent_minimize(
     func: Callable[[float], float], a: float, b: float, tol: float = 1e-3, max_iter: int = 10
 ) -> tuple[float, float]:
-    """Brent's 1D minimization combining parabolic interpolation and golden section (PHYS 3178 Unit 005)."""
+    """Brent's 1D minimization combining parabolic interpolation and golden-section search."""
     golden = 0.3819660112501051
     x = w = v = a + golden * (b - a)
     fx = fw = fv = float(func(x))
@@ -151,18 +151,16 @@ def refine_emo_conjugate_gradient(
     max_iter: int = 5,
     damping: float = 1e-4,
 ) -> CGInversionResult:
-    """Refine EMO potential via Fletcher-Reeves Nonlinear CG (Unit 006) + Brent line search (Unit 005)."""
+    """Refine EMO potential via Fletcher-Reeves conjugate gradient and Brent line search."""
     loss0, grad_b, j_curr, e_abs_c, e_init_rel = evaluate_emo_spectrum(
         r, emo_init, v_levels, e_obs, c_mu, e_hints=e_hints
     )
     rms0 = float(np.sqrt(np.mean((e_init_rel - e_obs) ** 2)))
 
-    # Fixed Cholesky whitening L L^T = J_0^T J_0 + damping * diag(J_0^T J_0)
     h0 = j_curr.T @ j_curr
     l_chol = np.linalg.cholesky(h0 + damping * np.diag(np.diag(h0)))
     l_inv = np.linalg.inv(l_chol.T)
 
-    # Nonlinear Conjugate Gradient (Unit 006 Slide 8): d_0 = -g_0, beta_k = (g_k^T g_k) / (g_{k-1}^T g_{k-1})
     g_k = l_inv.T @ grad_b
     d_k = -g_k.copy()
     b_curr = emo_init.b_coeffs.copy()

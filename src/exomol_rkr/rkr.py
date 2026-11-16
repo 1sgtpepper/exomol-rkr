@@ -93,7 +93,7 @@ def _legendre_p_and_dp(n: int, x: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
 
 
 def gauss_legendre(n: int, a: float = -1.0, b: float = 1.0) -> tuple[np.ndarray, np.ndarray]:
-    """Compute n-point Gauss-Legendre nodes and weights on [a, b] via Newton's method (004, 007)."""
+    """Compute n-point Gauss-Legendre nodes and weights on [a, b] via Newton's method."""
     m = (n + 1) // 2
     x = np.cos(np.pi * (np.arange(1, m + 1, dtype=np.float64) - 0.25) / (n + 0.5))
     for _ in range(10):

@@ -1,4 +1,4 @@
-"""ExoMol diatomic quantum spectroscopy and inverse potential solver (PHYS 3178)."""
+"""Diatomic potential inversion and radial Schrodinger spectroscopy."""
 
 from .data import MOLECULES, MoleculeDataset, MoleculeSpec, load_molecule
 from .invert import EMOPotential, brent_minimize, fit_emo_from_rkr, refine_emo_conjugate_gradient

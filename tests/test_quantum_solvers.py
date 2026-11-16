@@ -4,15 +4,15 @@ from __future__ import annotations
 
 import numpy as np
 
-from exomol_comphys.data import MOLECULES
-from exomol_comphys.numerov import (
+from exomol_rkr.data import MOLECULES
+from exomol_rkr.numerov import (
     diff_central_o4,
     morse_exact_energy,
     morse_potential,
     simpson_integrate,
     solve_radial_schrodinger,
 )
-from exomol_comphys.rkr import DunhamExpansion, gauss_legendre, rkr_turning_points
+from exomol_rkr.rkr import DunhamExpansion, gauss_legendre, rkr_turning_points
 
 
 def test_numerov_exact_morse_eigenvalues_and_sturm_nodes() -> None:

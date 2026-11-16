@@ -4,17 +4,17 @@ from __future__ import annotations
 
 import numpy as np
 
-from exomol_comphys.data import load_molecule
-from exomol_comphys.invert import (
+from exomol_rkr.data import load_molecule
+from exomol_rkr.invert import (
     EMOPotential,
     brent_minimize,
     evaluate_emo_spectrum,
     fit_emo_from_rkr,
     refine_emo_conjugate_gradient,
 )
-from exomol_comphys.numerov import solve_radial_schrodinger
-from exomol_comphys.rkr import fit_dunham, rkr_turning_points
-from exomol_comphys.spectra import (
+from exomol_rkr.numerov import solve_radial_schrodinger
+from exomol_rkr.rkr import fit_dunham, rkr_turning_points
+from exomol_rkr.spectra import (
     compute_stick_spectrum,
     partition_function,
     synthesize_ftir_interferogram,

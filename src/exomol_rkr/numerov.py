@@ -38,7 +38,7 @@ def morse_exact_energy(v: int | np.ndarray, de_cm: float, alpha_a: float, c_mu: 
 
 
 def diff_central_o4(y: np.ndarray, h: float) -> np.ndarray:
-    """5-point O(h^4) central finite-difference first derivative (PHYS 3178 Unit 007)."""
+    """5-point O(h^4) central finite-difference first derivative."""
     dy = np.empty_like(y, dtype=np.float64)
     dy[2:-2] = (-y[4:] + 8.0 * y[3:-1] - 8.0 * y[1:-3] + y[:-4]) / (12.0 * h)
     dy[0] = (-25.0 * y[0] + 48.0 * y[1] - 36.0 * y[2] + 16.0 * y[3] - 3.0 * y[4]) / (12.0 * h)
@@ -49,7 +49,7 @@ def diff_central_o4(y: np.ndarray, h: float) -> np.ndarray:
 
 
 def simpson_integrate(y: np.ndarray, h: float) -> float:
-    """Composite Simpson's 1/3 rule O(h^4) numerical integration (PHYS 3178 Unit 007)."""
+    """Composite Simpson's 1/3 rule O(h^4) numerical integration."""
     n = len(y)
     if n < 3:
         return float(np.trapezoid(y, dx=h))
@@ -114,7 +114,7 @@ def solve_radial_schrodinger(
     tol: float = 1e-11,
     c_coeff: float = 1.0 / 12.0,
 ) -> EigenState:
-    """Solve -c_mu u'' + V_eff(r) u = E u via safeguarded Sturm Bisection (003) + Cooley Newton (004)."""
+    """Solve -c_mu u'' + V_eff(r) u = E u via safeguarded Sturm bisection and Cooley update."""
     h = float(r[1] - r[0])
     v_eff = v_pot + (c_mu * j_rot * (j_rot + 1)) / (r**2) if j_rot > 0 else v_pot
     low, high = float(np.min(v_eff)), float(v_eff[-1]) * 0.9995
