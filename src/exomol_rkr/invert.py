@@ -124,7 +124,7 @@ def brent_minimize(
 
 def evaluate_emo_spectrum(
     r: np.ndarray, emo: EMOPotential, v_levels: np.ndarray, e_obs: np.ndarray, c_mu: float, e_hints: np.ndarray | None = None
-) -> tuple[float, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+) -> tuple[float, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """Solve all v_levels under EMO potential and compute Hellmann-Feynman Jacobian."""
     v_pot, dv_db = emo.evaluate_with_grad(r)
     energies = np.empty(len(v_levels), dtype=np.float64)
@@ -138,7 +138,7 @@ def evaluate_emo_spectrum(
     residuals = e_rel - e_obs
     j_hf = np.trapezoid((u_mat[:, None, :] ** 2) * dv_db[None, :, :], r, axis=2)
     j_rel = j_hf - j_hf[0:1, :]
-    return 0.5 * float(np.sum(residuals**2)), residuals @ j_rel, j_rel, energies, e_rel
+    return 0.5 * float(np.sum(residuals**2)), residuals @ j_rel, j_rel, energies, e_rel, j_hf
 
 
 def refine_emo_conjugate_gradient(
@@ -152,13 +152,14 @@ def refine_emo_conjugate_gradient(
     damping: float = 1e-4,
 ) -> CGInversionResult:
     """Refine EMO potential via Fletcher-Reeves conjugate gradient and Brent line search."""
-    loss0, grad_b, j_curr, e_abs_c, e_init_rel = evaluate_emo_spectrum(
+    loss0, grad_b, j_curr, e_abs_c, e_init_rel, j_hf = evaluate_emo_spectrum(
         r, emo_init, v_levels, e_obs, c_mu, e_hints=e_hints
     )
     rms0 = float(np.sqrt(np.mean((e_init_rel - e_obs) ** 2)))
 
     h0 = j_curr.T @ j_curr
-    l_chol = np.linalg.cholesky(h0 + damping * np.diag(np.diag(h0)))
+    h0_diag = np.diag(h0)
+    l_chol = np.linalg.cholesky(h0 + damping * np.diag(h0_diag))
     l_inv = np.linalg.inv(l_chol.T)
 
     g_k = l_inv.T @ grad_b
@@ -168,28 +169,37 @@ def refine_emo_conjugate_gradient(
     history = [{"iter": 0.0, "alpha": 0.0, "beta": 0.0, "loss": loss0, "rms_cm": rms0}]
 
     for k in range(1, max_iter + 1):
+        if float(np.dot(g_k, d_k)) >= 0.0:
+            d_k = -g_k.copy()
         db_dir = l_inv @ d_k
         jd = j_curr @ db_dir
-        alpha_quad = max(1e-3, min(2.0, float(-np.dot(g_k, d_k) / max(float(np.dot(jd, jd)), 1e-30))))
+        jd_abs = j_hf @ db_dir
+        curv = float(np.dot(jd, jd) + 0.1 * damping * np.dot(h0_diag, db_dir**2))
+        alpha_quad = max(1e-3, float(-np.dot(g_k, d_k) / max(curv, 1e-30)))
         ref_abs = e_abs_c.copy()
 
         def phi(alpha: float) -> float:
             v_cand = EMOPotential(emo_init.de_cm, emo_init.re_a, b_curr + alpha * db_dir).evaluate(r)
             e_cand = np.array(
-                [solve_radial_schrodinger(r, v_cand, int(v), 0, c_mu, e_hint=float(ref_abs[i]), tol=1e-10).energy for i, v in enumerate(v_levels)]
+                [
+                    solve_radial_schrodinger(
+                        r, v_cand, int(v), 0, c_mu, e_hint=float(ref_abs[i] + alpha * jd_abs[i]), tol=1e-10
+                    ).energy
+                    for i, v in enumerate(v_levels)
+                ]
             )
             return 0.5 * float(np.sum(((e_cand - e_cand[0]) - e_obs) ** 2))
 
-        alpha_k, _ = brent_minimize(phi, 0.0, 2.0 * alpha_quad, tol=1e-3, max_iter=6)
+        alpha_k, _ = brent_minimize(phi, 0.0, 2.0 * alpha_quad, tol=1e-3, max_iter=8)
         b_curr = b_curr + alpha_k * db_dir
         emo_curr = EMOPotential(emo_init.de_cm, emo_init.re_a, b_curr)
-        loss_next, grad_b_next, j_next, e_abs_next, e_rel_next = evaluate_emo_spectrum(
-            r, emo_curr, v_levels, e_obs, c_mu, e_hints=e_abs_c
+        loss_next, grad_b_next, j_next, e_abs_next, e_rel_next, j_hf_next = evaluate_emo_spectrum(
+            r, emo_curr, v_levels, e_obs, c_mu, e_hints=e_abs_c + alpha_k * jd_abs
         )
         g_next = l_inv.T @ grad_b_next
         beta_k = float(np.dot(g_next, g_next) / max(float(np.dot(g_k, g_k)), 1e-30))
         d_k = -g_next + beta_k * d_k
-        g_k, j_curr, e_abs_c, e_curr_rel = g_next, j_next, e_abs_next, e_rel_next
+        g_k, j_curr, j_hf, e_abs_c, e_curr_rel = g_next, j_next, j_hf_next, e_abs_next, e_rel_next
         rms_k = float(np.sqrt(np.mean((e_curr_rel - e_obs) ** 2)))
         history.append({"iter": float(k), "alpha": alpha_k, "beta": beta_k, "loss": loss_next, "rms_cm": rms_k})
 

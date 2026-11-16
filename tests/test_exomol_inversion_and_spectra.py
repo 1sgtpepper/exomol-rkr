@@ -65,7 +65,7 @@ def test_rkr_and_conjugate_gradient_emo_inversion() -> None:
     emo_init = fit_emo_from_rkr(rkr, de_cm=hcl.spec.de_cm, degree=5)
 
     r_grid = np.linspace(0.5, 4.5, 2001, dtype=np.float64)
-    _, _, j_rel, e_abs, _ = evaluate_emo_spectrum(
+    _, _, j_rel, e_abs, _, _ = evaluate_emo_spectrum(
         r_grid, emo_init, hcl.v_levels, hcl.e_v0, hcl.spec.c_mu, e_hints=rkr.g_v
     )
 
@@ -96,6 +96,10 @@ def test_rkr_and_conjugate_gradient_emo_inversion() -> None:
     assert cg_res.rms_initial_cm < 3.2
     assert cg_res.rms_refined_cm < 1.0
     assert cg_res.history[-1]["loss"] < 0.12 * cg_res.history[0]["loss"]
+    losses = [h["loss"] for h in cg_res.history]
+    assert all(losses[i + 1] < losses[i] for i in range(len(losses) - 1))
+    alphas = [round(h["alpha"], 6) for h in cg_res.history[1:]]
+    assert len(set(alphas)) == len(alphas)
 
 
 def test_boltzmann_partition_function_and_ftir_revivals() -> None:
