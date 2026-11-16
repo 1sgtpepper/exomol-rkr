@@ -46,7 +46,8 @@ def compute_stick_spectrum(
     if dataset.trans_up_id is None or dataset.trans_lo_id is None or dataset.trans_a_s is None:
         raise ValueError(f"Dataset {dataset.spec.slug} does not include radiative transitions")
 
-    up_idx, lo_idx = dataset.trans_up_id - 1, dataset.trans_lo_id - 1
+    up_idx = np.searchsorted(dataset.state_id, dataset.trans_up_id)
+    lo_idx = np.searchsorted(dataset.state_id, dataset.trans_lo_id)
     mask = np.ones(len(up_idx), dtype=bool)
     if v_up is not None:
         mask &= dataset.v_vib[up_idx] == v_up
@@ -84,15 +85,26 @@ def synthesize_ftir_interferogram(
     diff = nu_grid[:, None] - np.asarray(nu_lines, dtype=np.float64)[None, :]
     spectrum_true = ((gamma_cm / np.pi) / (diff**2 + gamma_cm**2)) @ np.asarray(s_lines, dtype=np.float64)
 
-    fft_coeffs = np.fft.rfft(spectrum_true) * d_nu
-    interferogram = np.real(fft_coeffs)
-    opd_cm = np.arange(len(fft_coeffs), dtype=np.float64) / (n_grid * d_nu)
+    n_fft = 2 * n_grid
+    c_pos = np.zeros(n_grid + 1, dtype=np.float64)
+    c_pos[0] = spectrum_true[0]
+    c_pos[1:n_grid] = 0.5 * spectrum_true[1:]
+    interferogram = (np.fft.irfft(c_pos, n=n_fft) * (n_fft * d_nu))[: n_grid + 1]
+    opd_cm = np.arange(n_grid + 1, dtype=np.float64) / (n_fft * d_nu)
 
-    spectrum_unapodized = np.fft.irfft(fft_coeffs / d_nu, n=n_grid)
-    hann_win = 0.5 * (1.0 + np.cos(np.pi * np.arange(len(fft_coeffs)) / (len(fft_coeffs) - 1)))
-    spectrum_apodized = np.fft.irfft((fft_coeffs * hann_win) / d_nu, n=n_grid)
+    def _invert_interferogram(ifg: np.ndarray) -> np.ndarray:
+        two_sided = np.concatenate([ifg, ifg[-2:0:-1]])
+        coeffs = np.real(np.fft.rfft(two_sided)) / (n_fft * d_nu)
+        spec = np.empty(n_grid, dtype=np.float64)
+        spec[0] = coeffs[0]
+        spec[1:] = 2.0 * coeffs[1:n_grid]
+        return spec
 
-    rev_mask = (opd_cm >= 0.035) & (opd_cm <= 0.060)
+    spectrum_unapodized = _invert_interferogram(interferogram)
+    hann_win = 0.5 * (1.0 + np.cos(np.pi * np.arange(len(interferogram)) / (len(interferogram) - 1)))
+    spectrum_apodized = _invert_interferogram(interferogram * hann_win)
+
+    rev_mask = (opd_cm >= 0.040) & (opd_cm <= 0.052)
     rev_idx = np.where(rev_mask)[0][int(np.argmax(np.abs(interferogram[rev_mask])))]
     return FTIRResult(
         nu_grid, spectrum_true, opd_cm, interferogram, spectrum_apodized,
